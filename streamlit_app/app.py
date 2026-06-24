@@ -82,7 +82,7 @@ st.markdown("""
     MADA Demo
   </div>
   <div style="color:#64748b;margin-top:6px;font-size:.95rem">
-    Streamlit version · Python only, no React
+    React + FastAPI · Deployment Showcase
   </div>
 </div>
 """, unsafe_allow_html=True)
