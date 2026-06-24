@@ -1,0 +1,2 @@
+# Root-level requirements.txt — used by Vercel for the Python serverless functions
+httpx==0.28.1
