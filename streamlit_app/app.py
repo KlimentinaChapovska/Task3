@@ -20,26 +20,77 @@ from shared.weather_service import WeatherServiceError, get_weather_sync
 # Page config
 # ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="MADA Demo — Streamlit",
+    page_title="MADA Demo",
     page_icon="🎲",
     layout="centered",
 )
 
-st.markdown(
-    "<style>h1{color:#4f46e5!important}section.main>div{padding-top:2rem}</style>",
-    unsafe_allow_html=True,
-)
+# ---------------------------------------------------------------------------
+# Global CSS — match the React version's look
+# ---------------------------------------------------------------------------
+st.markdown("""
+<style>
+/* ── background ──────────────────────────────────────────────── */
+[data-testid="stAppViewContainer"] > .main { background: #f1f5f9; }
+[data-testid="stHeader"]  { background: transparent; }
+footer, #MainMenu        { display: none !important; }
 
-st.title("🎲 MADA Demo")
-st.caption("Streamlit version · Python only, no React")
+/* ── card containers (border=True) ───────────────────────────── */
+[data-testid="stVerticalBlockBorderWrapper"] {
+  border: none !important;
+  border-radius: 16px !important;
+  background: white !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.07), 0 4px 16px rgba(0,0,0,.06) !important;
+  padding: 8px 4px !important;
+}
+
+/* ── primary buttons ─────────────────────────────────────────── */
+.stButton > button {
+  background: #4f46e5 !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  transition: background .15s !important;
+}
+.stButton > button:hover  { background: #4338ca !important; border: none !important; }
+.stButton > button:active { background: #3730a3 !important; }
+.stButton > button:focus:not(:active) { border: none !important; box-shadow: none !important; }
+
+/* ── text input ──────────────────────────────────────────────── */
+.stTextInput input {
+  border-radius: 8px !important;
+  border: 1.5px solid #d1d5db !important;
+  font-size: .95rem !important;
+}
+.stTextInput input:focus {
+  border-color: #6366f1 !important;
+  box-shadow: none !important;
+}
+
+/* ── column gap ──────────────────────────────────────────────── */
+[data-testid="stColumns"] { gap: 24px !important; }
+</style>
+""", unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
-# 3-D dice cube — rendered as a self-contained HTML/JS component
+# Header
 # ---------------------------------------------------------------------------
+st.markdown("""
+<div style="text-align:center;padding:32px 0 24px">
+  <div style="font-size:2.6rem;font-weight:700;color:#4f46e5;letter-spacing:-.5px">
+    MADA Demo
+  </div>
+  <div style="color:#64748b;margin-top:6px;font-size:.95rem">
+    Streamlit version · Python only, no React
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
-_S   = 96        # cube side length (px)
-_H   = _S // 2   # half = 48 (translateZ distance)
-_DOT = 15        # dot diameter (px)
+# ---------------------------------------------------------------------------
+# 3-D dice component helpers
+# ---------------------------------------------------------------------------
+_S, _H, _DOT = 96, 48, 15
 
 _DOTS: dict[int, list[tuple[int, int]]] = {
     1: [(50, 50)],
@@ -49,8 +100,6 @@ _DOTS: dict[int, list[tuple[int, int]]] = {
     5: [(28, 28), (72, 28), (50, 50), (28, 72), (72, 72)],
     6: [(28, 22), (72, 22), (28, 50), (72, 50), (28, 78), (72, 78)],
 }
-
-# Standard Western die: 1↔6, 2↔5, 3↔4
 _FACE_VALUE = {"front": 1, "back": 6, "right": 2, "left": 5, "top": 3, "bottom": 4}
 _FACE_BG = {
     "front":  "linear-gradient(145deg,#ffffff 0%,#f0f0f0 100%)",
@@ -71,59 +120,40 @@ _FACE_XFORM = {
 
 
 def _build_faces() -> str:
-    """All 6 faces for one cube — rotation of the container picks the visible value."""
-    out = []
+    parts = []
     for name, xform in _FACE_XFORM.items():
-        value = _FACE_VALUE[name]
+        v = _FACE_VALUE[name]
         dots = "".join(
             f'<div style="position:absolute;width:{_DOT}px;height:{_DOT}px;'
             f'border-radius:50%;'
             f'background:radial-gradient(circle at 35% 35%,#475569,#0f172a);'
-            f'box-shadow:inset 1px 1px 2px rgba(255,255,255,.15),'
-            f'0 1px 3px rgba(0,0,0,.35);'
-            f'left:{_S*x/100 - _DOT/2:.1f}px;'
-            f'top:{_S*y/100  - _DOT/2:.1f}px"></div>'
-            for x, y in _DOTS[value]
+            f'box-shadow:inset 1px 1px 2px rgba(255,255,255,.15),0 1px 3px rgba(0,0,0,.35);'
+            f'left:{_S*x/100-_DOT/2:.1f}px;top:{_S*y/100-_DOT/2:.1f}px"></div>'
+            for x, y in _DOTS[v]
         )
-        out.append(
-            f'<div class="face" style="transform:{xform};'
-            f'background:{_FACE_BG[name]}">{dots}</div>'
+        parts.append(
+            f'<div class="face" style="transform:{xform};background:{_FACE_BG[name]}">'
+            f'{dots}</div>'
         )
-    return "".join(out)
+    return "".join(parts)
 
 
 def _dice_component(d1: int, d2: int, roll_count: int) -> None:
-    """
-    Render two 3-D dice as an HTML/JS iframe component.
-    Each new roll_count triggers a smooth rotation to the correct face.
-    """
     faces = _build_faces()
     html = f"""<!DOCTYPE html><html><head><style>
 *{{box-sizing:border-box;margin:0;padding:0}}
-body{{
-  background:transparent;
-  display:flex;justify-content:center;align-items:center;
-  height:180px;overflow:hidden;
-}}
+body{{background:transparent;display:flex;justify-content:center;
+      align-items:center;height:160px;overflow:hidden}}
 .row{{display:flex;gap:48px;align-items:flex-end}}
 .wrap{{display:flex;flex-direction:column;align-items:center;gap:14px}}
 .scene{{perspective:520px}}
-.cube{{
-  width:{_S}px;height:{_S}px;
-  position:relative;transform-style:preserve-3d;
-}}
-.face{{
-  position:absolute;width:{_S}px;height:{_S}px;
-  border-radius:16px;
-  box-shadow:
-    inset 2px 2px 5px rgba(255,255,255,.7),
-    inset -2px -2px 5px rgba(0,0,0,.06);
-  backface-visibility:hidden;
-}}
-.shadow{{
-  width:70px;height:8px;border-radius:50%;
-  background:rgba(0,0,0,.18);filter:blur(4px);
-}}
+.cube{{width:{_S}px;height:{_S}px;position:relative;transform-style:preserve-3d}}
+.face{{position:absolute;width:{_S}px;height:{_S}px;border-radius:16px;
+       box-shadow:inset 2px 2px 5px rgba(255,255,255,.7),
+                  inset -2px -2px 5px rgba(0,0,0,.06);
+       backface-visibility:hidden}}
+.shadow{{width:70px;height:8px;border-radius:50%;
+         background:rgba(0,0,0,.18);filter:blur(4px)}}
 </style></head><body>
 <div class="row">
   <div class="wrap">
@@ -136,102 +166,100 @@ body{{
   </div>
 </div>
 <script>
-// Container rotation [rx,ry] that brings each face value to the front
 const SHOW={{1:[0,0],2:[0,-90],3:[90,0],4:[-90,0],5:[0,90],6:[0,180]}};
-const vals=[{d1},{d2}];
-const rollCount={roll_count};
-
-// Always move forward to the target angle; never snap backwards
-function fwd(cur,tgt){{
-  const c=((cur%360)+360)%360, t=((tgt%360)+360)%360;
-  let d=((t-c)+360)%360;
-  if(d<30)d+=360;
-  return cur+d;
+const vals=[{d1},{d2}], rc={roll_count};
+function fwd(c,t){{
+  const a=((c%360)+360)%360,b=((t%360)+360)%360;
+  let d=((b-a)+360)%360; if(d<30)d+=360; return c+d;
 }}
-
 ['c1','c2'].forEach((id,i)=>{{
-  const cube=document.getElementById(id);
-  const[tRx,tRy]=SHOW[vals[i]];
-  if(rollCount===0){{
-    // First load — just show the face, no animation
-    cube.style.transition='none';
-    cube.style.transform=`rotateX(${{tRx}}deg) rotateY(${{tRy}}deg)`;
-    return;
-  }}
-  // Start from a random scrambled orientation
-  const sx=90+Math.random()*540, sy=90+Math.random()*540;
-  cube.style.transition='none';
-  cube.style.transform=`rotateX(${{sx}}deg) rotateY(${{sy}}deg)`;
-  cube.getBoundingClientRect(); // force reflow before transition
-  cube.style.transition='transform 0.85s cubic-bezier(0.25,0.46,0.45,0.94)';
-  cube.style.transform=`rotateX(${{fwd(sx,tRx)}}deg) rotateY(${{fwd(sy,tRy)}}deg)`;
+  const el=document.getElementById(id),[tRx,tRy]=SHOW[vals[i]];
+  if(rc===0){{el.style.cssText='transition:none;transform:rotateX('+tRx+'deg) rotateY('+tRy+'deg)';return;}}
+  const sx=90+Math.random()*540,sy=90+Math.random()*540;
+  el.style.cssText='transition:none;transform:rotateX('+sx+'deg) rotateY('+sy+'deg)';
+  el.getBoundingClientRect();
+  el.style.transition='transform .85s cubic-bezier(.25,.46,.45,.94)';
+  el.style.transform='rotateX('+fwd(sx,tRx)+'deg) rotateY('+fwd(sy,tRy)+'deg)';
 }});
-</script>
-</body></html>"""
-    components.html(html, height=180)
+</script></body></html>"""
+    components.html(html, height=160)
 
 
 # ---------------------------------------------------------------------------
-# Dice Roller section
+# Two-column layout — mirrors the React side-by-side cards
 # ---------------------------------------------------------------------------
-st.divider()
-st.subheader("🎲 Dice Roller")
+col_left, col_right = st.columns(2, gap="large")
 
-if "dice"       not in st.session_state: st.session_state.dice       = (1, 1)
-if "roll_count" not in st.session_state: st.session_state.roll_count = 0
+# ── Dice Roller ─────────────────────────────────────────────────────────────
+with col_left:
+    with st.container(border=True):
+        st.markdown(
+            "<div style='font-size:1.2rem;font-weight:600;color:#374151;"
+            "margin-bottom:4px'>Dice Roller</div>",
+            unsafe_allow_html=True,
+        )
 
-_dice_component(*st.session_state.dice, st.session_state.roll_count)
+        if "dice"       not in st.session_state: st.session_state.dice       = (1, 1)
+        if "roll_count" not in st.session_state: st.session_state.roll_count = 0
 
-if st.button(
-    "Roll Dice" if st.session_state.roll_count == 0 else "Roll Again",
-    use_container_width=True,
-):
-    st.session_state.dice       = (random.randint(1, 6), random.randint(1, 6))
-    st.session_state.roll_count += 1
-    st.rerun()
+        _dice_component(*st.session_state.dice, st.session_state.roll_count)
 
-if st.session_state.roll_count > 0:
-    d1, d2 = st.session_state.dice
-    st.markdown(
-        f"<div style='text-align:center;margin-top:4px'>"
-        f"<span style='font-size:2.6rem;font-weight:800;color:#4f46e5;letter-spacing:-1px'>"
-        f"{d1+d2}</span><br>"
-        f"<span style='color:#94a3b8;font-size:0.88rem'>{d1} + {d2}</span></div>",
-        unsafe_allow_html=True,
-    )
+        if st.button(
+            "Roll Dice" if st.session_state.roll_count == 0 else "Roll Again",
+            use_container_width=True,
+            key="roll_btn",
+        ):
+            st.session_state.dice       = (random.randint(1, 6), random.randint(1, 6))
+            st.session_state.roll_count += 1
+            st.rerun()
 
-# ---------------------------------------------------------------------------
-# City Temperature section
-# ---------------------------------------------------------------------------
-st.divider()
-st.subheader("🌡️ City Temperature")
+        if st.session_state.roll_count > 0:
+            d1, d2 = st.session_state.dice
+            st.markdown(
+                f"<div style='text-align:center;margin-top:8px'>"
+                f"<span style='font-size:2.8rem;font-weight:800;color:#4f46e5;"
+                f"letter-spacing:-1px;line-height:1'>{d1+d2}</span><br>"
+                f"<span style='color:#94a3b8;font-size:.88rem'>{d1} + {d2}</span>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
 
-city_input = st.text_input(
-    "City name",
-    placeholder="e.g. Tokyo",
-    label_visibility="collapsed",
-)
+# ── City Temperature ────────────────────────────────────────────────────────
+with col_right:
+    with st.container(border=True):
+        st.markdown(
+            "<div style='font-size:1.2rem;font-weight:600;color:#374151;"
+            "margin-bottom:4px'>City Temperature</div>",
+            unsafe_allow_html=True,
+        )
 
-if st.button("Get Temperature", use_container_width=True):
-    if city_input.strip():
-        with st.spinner("Fetching weather…"):
-            try:
-                result = get_weather_sync(city_input.strip())
-                st.markdown(
-                    f"<div style='text-align:center;padding:16px;background:#f8faff;"
-                    f"border:1.5px solid #e0e7ff;border-radius:12px;margin-top:12px'>"
-                    f"<div style='font-weight:600;color:#374151;font-size:1.05rem'>"
-                    f"{result.city}, {result.country}</div>"
-                    f"<div style='font-size:2.8rem;font-weight:700;color:#4f46e5;"
-                    f"line-height:1.1;margin:4px 0'>"
-                    f"{result.temperature}{result.unit}</div>"
-                    f"<div style='color:#64748b;font-size:0.9rem'>"
-                    f"{result.condition or ''}</div></div>",
-                    unsafe_allow_html=True,
-                )
-            except WeatherServiceError as exc:
-                st.error(str(exc))
-            except Exception as exc:
-                st.error(f"Unexpected error: {exc}")
-    else:
-        st.warning("Please enter a city name.")
+        city = st.text_input(
+            "City name",
+            placeholder="Enter a city, e.g. London",
+            label_visibility="collapsed",
+            key="city_input",
+        )
+
+        if st.button("Get Temperature", use_container_width=True, key="weather_btn"):
+            if city.strip():
+                with st.spinner("Fetching weather…"):
+                    try:
+                        r = get_weather_sync(city.strip())
+                        st.markdown(
+                            f"<div style='text-align:center;margin-top:12px;padding:20px;"
+                            f"background:#f8faff;border:1.5px solid #e0e7ff;"
+                            f"border-radius:12px'>"
+                            f"<div style='font-weight:600;color:#374151;font-size:1.05rem'>"
+                            f"{r.city}, {r.country}</div>"
+                            f"<div style='font-size:2.8rem;font-weight:700;color:#4f46e5;"
+                            f"line-height:1.1;margin:6px 0'>{r.temperature}{r.unit}</div>"
+                            f"<div style='color:#64748b;font-size:.9rem'>"
+                            f"{r.condition or ''}</div></div>",
+                            unsafe_allow_html=True,
+                        )
+                    except WeatherServiceError as exc:
+                        st.error(str(exc))
+                    except Exception as exc:
+                        st.error(f"Unexpected error: {exc}")
+            else:
+                st.warning("Please enter a city name.")
