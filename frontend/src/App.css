@@ -61,27 +61,131 @@ body {
 }
 
 /* -----------------------------------------------------------------------
-   Dice roller
+   3-D Dice
 ----------------------------------------------------------------------- */
-@keyframes spin {
-  0%   { transform: rotate(0deg) scale(1); }
-  25%  { transform: rotate(10deg) scale(1.06); }
-  50%  { transform: rotate(-8deg) scale(0.96); }
-  75%  { transform: rotate(6deg) scale(1.04); }
-  100% { transform: rotate(0deg) scale(1); }
+
+@keyframes result-appear {
+  from { opacity: 0; transform: translateY(10px) scale(0.92); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
 }
 
-.result-text {
-  text-align: center;
-  font-size: 1.1rem;
-  color: #374151;
-  margin-bottom: 18px;
+/* Perspective wrapper — one per die */
+.die-scene {
+  perspective: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
 }
 
-.result-text strong {
+/* The rotating cube */
+.die-cube {
+  width: 96px;
+  height: 96px;
+  position: relative;
+  transform-style: preserve-3d;
+  /* Static depth shadow rendered by a sibling; no filter here to keep preserve-3d working */
+}
+
+/* Purple ring behind the cube while rolling — separate element so it never
+   touches the preserve-3d context */
+.die-cube::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 22px;
+  background: transparent;
+  transition: box-shadow 0.2s;
+  pointer-events: none;
+  /* sits behind the cube faces */
+  transform: translateZ(-60px);
+}
+.die-cube--rolling::before {
+  box-shadow: 0 0 0 4px rgba(99,102,241,0.6),
+              0 0 40px 8px rgba(99,102,241,0.25);
+}
+
+/* Individual faces */
+.die-face {
+  position: absolute;
+  width: 96px;
+  height: 96px;
+  border-radius: 16px;
+  box-shadow:
+    inset 2px 2px 5px rgba(255,255,255,0.7),
+    inset -2px -2px 5px rgba(0,0,0,0.06);
+  backface-visibility: hidden;
+}
+
+/* Dots */
+.die-dot {
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #475569, #0f172a);
+  box-shadow:
+    inset 1px 1px 2px rgba(255,255,255,0.15),
+    0 1px 3px rgba(0,0,0,0.35);
+}
+
+/* Ground shadow — shrinks / fades while die is airborne */
+.die-shadow {
+  width: 70px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.18);
+  filter: blur(4px);
+  transition: width 0.12s, opacity 0.12s, transform 0.12s;
+}
+.die-shadow--up {
+  width: 38px;
+  opacity: 0.45;
+  transform: translateY(-6px) scaleX(0.7);
+}
+
+/* Tray that holds both dice */
+.dice-tray {
+  display: flex;
+  gap: 40px;
+  align-items: flex-end;
+  justify-content: center;
+  margin: 28px 0 6px;
+  min-height: 140px;
+}
+
+/* Result display */
+.result-area {
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.result-reveal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: result-appear 0.4s cubic-bezier(0.22,1,0.36,1) forwards;
+}
+
+.result-total {
+  font-size: 3.2rem;
+  font-weight: 800;
+  line-height: 1;
   color: #4f46e5;
-  font-size: 1.4rem;
+  letter-spacing: -1.5px;
 }
+
+.result-breakdown {
+  font-size: 0.88rem;
+  color: #94a3b8;
+  margin-top: 5px;
+  letter-spacing: 0.5px;
+}
+
+.roll-btn { min-width: 140px; }
 
 /* -----------------------------------------------------------------------
    Weather

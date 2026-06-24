@@ -1,74 +1,62 @@
 import { useState, useRef, useEffect } from "react";
 import { Die } from "./Die";
 
-function randomFace(): number {
-  return Math.floor(Math.random() * 6) + 1;
-}
+function randomFace() { return Math.floor(Math.random() * 6) + 1; }
 
 export function DiceRoller() {
-  const [dice, setDice] = useState<[number, number]>([1, 1]);
-  const [rolling, setRolling] = useState(false);
-  const [hasRolled, setHasRolled] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [dice, setDice]           = useState<[number, number]>([1, 1]);
+  const [rolling, setRolling]     = useState(false);
+  const [showResult, setShowResult] = useState(false);
+  const timer1 = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timer2 = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Clean up timers on unmount
-  useEffect(() => {
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
+  useEffect(() => () => {
+    if (timer1.current) clearTimeout(timer1.current);
+    if (timer2.current) clearTimeout(timer2.current);
   }, []);
 
   function roll() {
     if (rolling) return;
     setRolling(true);
-    setHasRolled(false);
+    setShowResult(false);
 
-    // Rapidly cycle random faces to simulate tumbling
-    intervalRef.current = setInterval(() => {
-      setDice([randomFace(), randomFace()]);
-    }, 80);
-
-    // Stop after 900 ms and lock in a final result
-    timeoutRef.current = setTimeout(() => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+    // The cube spins freely for 1.1s, then the final value is locked in and
+    // the Die component smoothly rotates to that face (takes ~0.65s).
+    // We reveal the result text just after that transition finishes.
+    timer1.current = setTimeout(() => {
       const final: [number, number] = [randomFace(), randomFace()];
-      setDice(final);
-      setRolling(false);
-      setHasRolled(true);
-    }, 900);
+      setDice(final);    // value prop → Die reads it when rolling stops
+      setRolling(false); // triggers Die's face-landing transition
+
+      timer2.current = setTimeout(() => setShowResult(true), 700);
+    }, 1100);
   }
 
   const total = dice[0] + dice[1];
+  const hasRolled = showResult;
 
   return (
     <section aria-labelledby="dice-heading">
       <h2 id="dice-heading">Dice Roller</h2>
 
-      <div
-        style={{
-          display: "flex",
-          gap: 24,
-          alignItems: "center",
-          justifyContent: "center",
-          margin: "24px 0",
-        }}
-      >
+      <div className="dice-tray">
         <Die value={dice[0]} rolling={rolling} />
         <Die value={dice[1]} rolling={rolling} />
       </div>
 
-      {hasRolled && !rolling && (
-        <p className="result-text">
-          {dice[0]} + {dice[1]} = <strong>{total}</strong>
-        </p>
-      )}
+      <div className="result-area">
+        {showResult && (
+          <div className="result-reveal">
+            <span className="result-total">{total}</span>
+            <span className="result-breakdown">{dice[0]} + {dice[1]}</span>
+          </div>
+        )}
+      </div>
 
       <button
         onClick={roll}
         disabled={rolling}
-        className="primary-btn"
+        className="primary-btn roll-btn"
         aria-label={hasRolled ? "Roll dice again" : "Roll dice"}
       >
         {rolling ? "Rolling…" : hasRolled ? "Roll Again" : "Roll Dice"}
